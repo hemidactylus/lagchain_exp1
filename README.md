@@ -180,3 +180,23 @@ SQLAlchemy is exact-match
 It might be useful to work on extending [GPTCache](https://github.com/zilliztech/GPTCache)
 
 Still in GPTCache, in particular the `CacheBase` [class](https://github.com/zilliztech/GPTCache/blob/6a1e2e82aabcd3a48486042ef5c7c6323f8589fd/gptcache/manager/scalar_data/manager.py#L17) supports a handful of SQL storage engines to save the (similarity) cache state. Worth extending to C* ?
+
+
+## Cassandraify
+
+This is in `02_cassandra-astra` and we start with `Cassandra_01` notebook.
+
+First a bit of research into the [caching interface](https://github.com/hwchase17/langchain/blob/master/langchain/cache.py).
+
+Then a first prototype is out: a class `CassandraCache` with:
+
+- a cql Session object ready to use and a keyspace name when initialized;
+- store/get/clear methods;
+- a serdes layer for the predictions.
+
+Not (yet) in scope:
+
+  - handling of TTL
+  - custom table name (and CL, TTL policy ...)
+  - binary blobs instead of strings for the predictions
+  - prepared statements to optimize repeated usage

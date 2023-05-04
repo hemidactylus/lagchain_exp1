@@ -1,10 +1,12 @@
+cassandra-driver==3.27.0
 gptcache==0.1.21
 jupyter==1.0.0
 langchain==0.0.157
+mysqlclient==2.1.1
 openai==0.27.6
+psycopg2==2.9.6
+PyMySQL==1.0.3
+python-dotenv==1.0.0
 redis==4.5.4
 SQLAlchemy-Utils==0.41.1
 SQLAlchemy==2.0.12
-psycopg2==2.9.6
-mysqlclient==2.1.1
-PyMySQL==1.0.3
