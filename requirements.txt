@@ -1,0 +1,10 @@
+gptcache==0.1.21
+jupyter==1.0.0
+langchain==0.0.157
+openai==0.27.6
+redis==4.5.4
+SQLAlchemy-Utils==0.41.1
+SQLAlchemy==2.0.12
+psycopg2==2.9.6
+mysqlclient==2.1.1
+PyMySQL==1.0.3

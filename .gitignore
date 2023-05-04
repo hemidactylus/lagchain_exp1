@@ -1,0 +1,6 @@
+.env
+.ipynb_checkpoints/
+.langchain.db
+data_map_*.txt
+faiss.index
+sqlite.db
