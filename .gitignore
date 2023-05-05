@@ -1,7 +1,14 @@
+# secrets
 .env
+
+# rubbish
 .ipynb_checkpoints/
+__pycache__
+
+# databases, caches & stuff
 .langchain.db
 data_map_*.txt
 faiss.index
 sqlite.db
-__pycache__
+01_other-backends/Chinook.db
+01_other-backends/Chinook_Sqlite.sql

@@ -19,7 +19,7 @@ Then package it into a neat tutorial.
 
 ## Reproduce
 
-This is `01_other-backends`.
+This is `01_other-backends/llmcache-Other-Backends-01.ipynb`.
 
 Tried in-memory, SQLite: all as expected.
 
@@ -105,7 +105,7 @@ Better approach: `RedisSemanticCache`. It uses a vector search on embeddings of 
 
 ## Cassandraify, part I (exact-cache)
 
-This is in `02_cassandra-astra` and we start with `Cassandra_01` notebook.
+This is in `02_cassandra-astra/llmcache-Cassandra_01.ipynb`.
 
 First a bit of research into the [caching interface](https://github.com/hwchase17/langchain/blob/master/langchain/cache.py).
 
