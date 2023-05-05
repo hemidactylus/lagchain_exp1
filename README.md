@@ -167,22 +167,8 @@ In-mem and SQLite implement exact string match.
 
 Better approach: `RedisSemanticCache`. It uses a vector search on embeddings of the prompt.
 
-## Astra/Cassandraify
 
-#### Thoughts
-
-Plug a pretend-bruteforce vector thing, how, how sophisticated and at which level?
-
-SQLAlchemy is exact-match
-
-##### GPTCache
-
-It might be useful to work on extending [GPTCache](https://github.com/zilliztech/GPTCache)
-
-Still in GPTCache, in particular the `CacheBase` [class](https://github.com/zilliztech/GPTCache/blob/6a1e2e82aabcd3a48486042ef5c7c6323f8589fd/gptcache/manager/scalar_data/manager.py#L17) supports a handful of SQL storage engines to save the (similarity) cache state. Worth extending to C* ?
-
-
-## Cassandraify
+## Cassandraify, part I (exact-cache)
 
 This is in `02_cassandra-astra` and we start with `Cassandra_01` notebook.
 
@@ -200,3 +186,30 @@ Not (yet) in scope:
   - custom table name (and CL, TTL policy ...)
   - binary blobs instead of strings for the predictions
   - prepared statements to optimize repeated usage
+
+
+## Thoughts
+
+SQLAlchemy is generally exact-match.
+
+#### On reaching "semantic caching"
+
+Current understanding for LangChain:
+
+1. it can use Redis if it comes with the ["redisearch" module](https://github.com/hwchase17/langchain/blob/8de1b4c4c20ea81f44628a1c42fbc1bbfff37520/langchain/vectorstores/redis.py#L55-L58) which implements vector-ish stuff
+2. alternatively, it relies on the "GPTCache" library which, [in turn](https://github.com/zilliztech/GPTCache/blob/6a1e2e82aabcd3a48486042ef5c7c6323f8589fd/gptcache/manager/vector_data/faiss.py), uses the Python bindings ["faiss-cpu"](https://pypi.org/project/faiss-cpu/) (by Facebook) and keeps it in sync with addition/removal of items from whatever underlying storage (postgres, whatever) it may use.
+3. There are [modules](https://github.com/hwchase17/langchain/blob/8de1b4c4c20ea81f44628a1c42fbc1bbfff37520/langchain/vectorstores/faiss.py) wrapping FAISS directly in LangChain as well, ... worth taking a look where this is used exactly.
+
+#### Semantic in Cassandra
+
+(in absence of actual vector-search implementation on Cassandra, that is).
+
+Plug a pretend-bruteforce vector thing, how, how sophisticated and at which level?
+
+TODO
+
+#### On GPTCache
+
+It might be useful to work on extending [GPTCache](https://github.com/zilliztech/GPTCache)
+
+Still in GPTCache, in particular the `CacheBase` [class](https://github.com/zilliztech/GPTCache/blob/6a1e2e82aabcd3a48486042ef5c7c6323f8589fd/gptcache/manager/scalar_data/manager.py#L17) supports a handful of SQL storage engines to save the (similarity) cache state. Worth extending to C* ?
