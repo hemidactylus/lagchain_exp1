@@ -42,7 +42,7 @@ where (so it seems) a llm_chain is needed. A warning ensues (just so we know).
 
 ### Cassandraify
 
-A separate notebook just to play with CQL generation in this style: `02_cassandra-astra/experiments-cqlchain-Cassandra`
+A separate notebook just to play with CQL generation in this style: `02_cassandra-astra/experiments/experiments-cqlchain-Cassandra`
 
 First we create a sensible `table_info`, then we start with the prompts.
 
@@ -52,10 +52,18 @@ Not implemented stuff, among other:
 - type mapping (?)
 - 'with clustering order by'
 - sample rows in table_info
-- overriding table_info (per-table mapping)
 
 Problems:
 - insists on using ORDER BY indiscriminately
-- ignores the always-specify-partition request
+- ignores the always-specify-partition constraint on the query (and other Cassandra stuff)
 
-Very unsatisfactory results.
+Rather unsatisfactory results in the "core" CQL generation: it keeps using
+SQL-only constructs and does not apply Cassandra query limitations.
+
+In the meantime, started a prototype implementation
+that subclasses and partially modifies the behaviour of the relevant classes.
+The mechanics (signatures, flow) all work.
+
+_Note: in a sense, more so than for SQL, the effort should be on "agents" since the need_
+_for multiple queries given a certain data model is more typical than for SQL databases._
+
