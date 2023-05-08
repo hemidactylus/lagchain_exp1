@@ -7,63 +7,37 @@ classes, practices and extensions.
 
 See [this page](phase1_llmcaching.md).
 
-## Phase II - SQLChain
+## Phase II - CQLChain
 
-This is here for the time being.
+See [this page](phase2_cqlchain.md).
 
-Reference preprint: [2204.00498](https://arxiv.org/abs/2204.00498).
+## Phase III - Memory
 
-(SQL) Code: [chain](https://github.com/hwchase17/langchain/blob/8de1b4c4c20ea81f44628a1c42fbc1bbfff37520/langchain/chains/sql_database/base.py#L18) and [prompts](https://github.com/hwchase17/langchain/blob/8de1b4c4c20ea81f44628a1c42fbc1bbfff37520/langchain/chains/sql_database/prompt.py).
+Implemented in `02_cassandra-astra/CassandraChatMessageHistory.py` and exemplified in `02_cassandra-astra/memory-Cassandra_01`.
 
-### Reproduce
+General structure: one creates a `CassandraChatMessageHistory` class,
+which subclasses `BaseChatMessageHistory`, then [uses](https://github.com/hwchase17/langchain/blob/42df78d3964170bab39d445aa2827dea10a312a7/tests/integration_tests/memory/test_cosmos_db.py#L16) it e.g. as in:
 
-Set up the SQLite chinook database as in the [reference](https://database.guide/2-sample-databases-sqlite/),
-so that there's a `Chinook.db` file in the `01_other-backends` directory.
-This is where the notebook `sqlchain-Other-Backends-01.ipynb` will run.
+```
+message_history = CassandraChatMessageHistory(
+    STUFF ...
+    ttl=10,
+)
+memory = ConversationBufferMemory(
+    memory_key="<check-template-matching>",
+    chat_memory=message_history,
+    return_messages=True,
+)
+...
+```
 
-#### A possible bug
+See also [the generic docs on memory](https://python.langchain.com/en/latest/modules/memory/examples/adding_memory.html).
 
-When doing the "setting limit programmatically", it seems that the closing
-semicolon is always lost by the part that adds the `LIMIT n` clause to the query.
+Not in scope for now:
 
-A bit of experimentation to have the semicolon.
-Still unclear how come it works at the beginning of the notebook (top_k is always there with default = 5).
-Possibly another template gets pulled in?
+- preparing statements
+- better serialization
+- clash between `session_id` and (CQL) `session` in the class
 
-Solution seems that `SQLITE_PROMPT` is never used unless you specify it explicitly.
-Anyway this is not enough.
-
-Try with my 'nudged' prompt.
-
-#### A warning
-
-At the time of writing, the internals of the SQLDatabaseSequentialChain still uses a llm
-where (so it seems) a llm_chain is needed. A warning ensues (just so we know).
-
-### Cassandraify
-
-A separate notebook just to play with CQL generation in this style: `02_cassandra-astra/experiments/experiments-cqlchain-Cassandra`
-
-First we create a sensible `table_info`, then we start with the prompts.
-
-Not implemented stuff, among other:
-
-- indices
-- type mapping (?)
-- 'with clustering order by'
-- sample rows in table_info
-
-Problems:
-- insists on using ORDER BY indiscriminately
-- ignores the always-specify-partition constraint on the query (and other Cassandra stuff)
-
-Rather unsatisfactory results in the "core" CQL generation: it keeps using
-SQL-only constructs and does not apply Cassandra query limitations.
-
-In the meantime, started a prototype implementation
-that subclasses and partially modifies the behaviour of the relevant classes.
-The mechanics (signatures, flow) all work.
-
-_Note: in a sense, more so than for SQL, the effort should be on "agents" since the need_
-_for multiple queries given a certain data model is more typical than for SQL databases._
-
+Once this is in place, it can be used with other types of memory than the simple `ConversationBufferMemory`.
+In `02_cassandra-astra/memory-Cassandra_02-summarybuffermemory` we test it with the `ConversationSummaryBufferMemory`.

@@ -8,9 +8,12 @@ from typing import Any, Iterable, List, Optional, Dict
 from langchain import SQLDatabase, SQLDatabaseChain
 from langchain.base_language import BaseLanguageModel
 from langchain.prompts.base import BasePromptTemplate
+from langchain.chains.base import Chain
 from langchain.chains.llm import LLMChain
 from langchain.prompts.prompt import PromptTemplate
 from langchain.callbacks.manager import CallbackManagerForChainRun
+from langchain.chains.sql_database.prompt import DECIDER_PROMPT
+from langchain.chains import SQLDatabaseSequentialChain
 
 CREATE_TABLE_TEMPLATE = """CREATE TABLE {keyspace_name}.{table_name} (
 {columns}
@@ -235,3 +238,31 @@ class CQLDatabaseChain(SQLDatabaseChain):
         prompt = prompt or CQL_PROMPT
         llm_chain = LLMChain(llm=llm, prompt=prompt)
         return cls(llm_chain=llm_chain, database=db, **kwargs)
+
+
+class CQLDatabaseSequentialChain(SQLDatabaseSequentialChain):
+    """CQL variant."""
+
+    decider_chain: LLMChain
+    sql_chain: CQLDatabaseChain
+    input_key: str = "query"  #: :meta private:
+    output_key: str = "result"  #: :meta private:
+    return_intermediate_steps: bool = False
+
+    @classmethod
+    def from_llm(
+        cls,
+        llm: BaseLanguageModel,
+        database: CQLDatabase,
+        query_prompt: BasePromptTemplate = CQL_PROMPT,
+        decider_prompt: BasePromptTemplate = DECIDER_PROMPT,
+        **kwargs: Any,
+    ):
+        """Load the necessary chains."""
+        sql_chain = CQLDatabaseChain(
+            llm=llm, database=database, prompt=query_prompt, **kwargs
+        )
+        decider_chain = LLMChain(
+            llm=llm, prompt=decider_prompt, output_key="table_names"
+        )
+        return cls(sql_chain=sql_chain, decider_chain=decider_chain, **kwargs)
