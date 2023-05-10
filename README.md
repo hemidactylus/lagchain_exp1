@@ -23,4 +23,5 @@ Some exploration on how to create custom agents is in
 Mostly this is about making sure structured input is accepted
 and dependency injection (say, a DB connection, etc) is ok.
 
-Also, packaging a "toolkit" is TODO
+Also, packaging a "toolkit" is understood and exemplified.
+
