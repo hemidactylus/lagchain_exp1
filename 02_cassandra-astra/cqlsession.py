@@ -22,3 +22,9 @@ def getCqlSession():
     )
     astraSession = cluster.connect()
     return astraSession
+
+def getLocalCassandraSession():
+    # A session to a locally-running Cassandra
+    cluster = Cluster()
+    localSession = cluster.connect()
+    return localSession
