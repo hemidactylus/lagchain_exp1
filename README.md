@@ -25,3 +25,10 @@ and dependency injection (say, a DB connection, etc) is ok.
 
 Also, packaging a "toolkit" is understood and exemplified.
 
+#### Cassandra
+
+Trying to come up with a reasonable CQL minimal agent
+packaged as a toolkit.
+
+`02_cassandra-astra/cqlagent-Cassandra_01` is the notebook
+and `02_cassandra-astra/CQLAgentToolkit.py` is where the implementation is.
