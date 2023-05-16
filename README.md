@@ -36,3 +36,14 @@ inspiration from the source code mostly, plus by reading [this whole section](ht
 Inspired from the `RedisSemanticCache` on [this page](phase1_llmcaching.md) (mostly, inspection of the source code).
 
 See [this page](phase5_cassandrasemantic.md).
+
+## Phase VI - Prompt Templates
+
+A high level of abstraction to seamlessly inject data from Cassandra into a prompt.
+
+Some engineering was required, which worked in two steps:
+
+1. a generic prompt template able to cope with dependencies and multiple arguments to the data 'getters'
+2. a specialization that just requires declaratively describing which tables contribute with their columns.
+
+The classes need some work, mostly in adding all sorts of validation steps re: overlapping arg names and such.
