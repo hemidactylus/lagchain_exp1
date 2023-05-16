@@ -84,6 +84,10 @@ FROM {keyspace}.{tableName}
     WHERE embedding ANN OF %s
     LIMIT %s
 """
+_truncateSemanticTableCQLTemplate = """
+TRUNCATE TABLE {keyspace}.{tableName};
+"""
+
 
 SEMANTIC_CACHE_DEFAULT_NUM_ROWS_TO_FETCH = 1
 SEMANTIC_CACHE_EMBEDDING_CACHE_SIZE = 16
@@ -174,46 +178,101 @@ class CassandraCache(BaseCache):
         )
 
 
+# distance definitions. These all work batched in the first argument.
+def distance_cosDifference(embeddings: List[List[float]], referenceEmbedding: List[float]) -> List[float]:
+    v1s = np.array(embeddings, dtype=float)
+    v2 = np.array(referenceEmbedding, dtype=float)
+    return list(np.dot(
+        v1s,
+        v2.T,
+    ) / (
+        np.linalg.norm(v1s, axis=1)
+        * np.linalg.norm(v2)
+    ))
+
+
+def distance_dotProduct(embeddings: List[List[float]], referenceEmbedding: List[float]) -> List[float]:
+        """
+        Given a list [emb_i] and a reference rEmb vector,
+        return a list [distance_i] where each distance is
+            distance_i = distance(emb_i, rEmb)
+        At the moment only the dot product is supported
+        (which for unitary vectors is the cosine difference).
+
+        Not particularly optimized.
+        """
+        v1s = np.array(embeddings, dtype=float)
+        v2 = np.array(referenceEmbedding, dtype=float)
+        return list(np.dot(
+            v1s,
+            v2.T,
+        ))
+
+
+def distance_L1(embeddings: List[List[float]], referenceEmbedding: List[float]) -> List[float]:
+        v1s = np.array(embeddings, dtype=float)
+        v2 = np.array(referenceEmbedding, dtype=float)
+        return list(np.linalg.norm(v1s - v2, axis=1, ord=1))
+
+
+def distance_L2(embeddings: List[List[float]], referenceEmbedding: List[float]) -> List[float]:
+        v1s = np.array(embeddings, dtype=float)
+        v2 = np.array(referenceEmbedding, dtype=float)
+        return list(np.linalg.norm(v1s - v2, axis=1, ord=2))
+
+
+def distance_max(embeddings: List[List[float]], referenceEmbedding: List[float]) -> List[float]:
+        v1s = np.array(embeddings, dtype=float)
+        v2 = np.array(referenceEmbedding, dtype=float)
+        return list(np.linalg.norm(v1s - v2, axis=1, ord=np.inf))
+
+
+distanceMetricsMap = {
+    'cos': distance_cosDifference,
+    'dot': distance_dotProduct,
+    'l1': distance_L1,
+    'l2': distance_L2,
+    'max': distance_max,
+}
+
+
 class CassandraSemanticCache(BaseCache):
     """
     Cache that uses Cassandra as a vector-store backend,
     based on the CEP-30 drafts at the moment.
-    """
 
-    # TODOs:
-    #   1. TTL handling (and interface for it in the class)
-    #   2. deletion of an index (= one model_str). Hence, concurrency in
-    #      caching access under whole-index deletion
-    #   3. whether to have the vector as primary key (odd) or an ID
-    #   4. other metrics than dot-product ?
-    #   5. tune threshold for tolerance
-    #   6. implement 'clear()'
-    #   7. raise the number of retrieved rows (at the moment this might break the code where there are fewer rows on the table)
+    - TTL is not supported yet
+    - As soon as cassandra admist LIMIT > total rows in table (alpha crashes now),
+      raise SEMANTIC_CACHE_DEFAULT_NUM_ROWS_TO_FETCH to 32 or so.
+    """
 
     def __init__(
         self, session: Session, keyspace: str,
-        embedding: Embeddings, score_threshold: float = SEMANTIC_CACHE_DEFAULT_SCORE_THRESHOLD,
+        embedding: Embeddings,
         distance_metric: str = 'dot',
+        score_threshold: float = SEMANTIC_CACHE_DEFAULT_SCORE_THRESHOLD,
     ):
         """Initialize the cache with all relevant parameters.
         Args:
             session (cassandra.cluster.Session): an open Cassandra session
             keyspace (str): the keyspace to use for storing the cache
             embedding (Embedding): Embedding provider for semantic encoding and search.
-            score_threshold (float, 0.2)
             distance_metric (str, 'dot')
+            score_threshold (optional float)
+        The default score threshold is tuned to the default metric.
+        Tune it carefully yourself if switching to another distance metric.
         """
         self.session = session
         self.keyspace = keyspace
         self.embedding = embedding
         self.score_threshold = score_threshold
         self.distance_metric = distance_metric
-        if self.distance_metric != 'dot':
+        if self.distance_metric not in distanceMetricsMap:
             raise NotImplementedError(f'Distance metric "{self.distance_metric}" not supported')
         #
         self._num_rows_to_fetch = SEMANTIC_CACHE_DEFAULT_NUM_ROWS_TO_FETCH
-        # we need to keep track of tables/indexes we created already
-        # TODO: the following approach is not ready to handle concurrent access (re whole-index deletion)
+        # we keep track of tables/indexes we created already, to avoid doing
+        # a lot of 'create if not exists' all the time
         self.table_cache = {}  # model_str -> table_name
         # The contract for this class has separate lookup and update:
         # in order to spare some embedding calculations we cache them between
@@ -253,21 +312,8 @@ class CassandraSemanticCache(BaseCache):
             # our local cache tells us we already created this table: no-op
             pass
 
-    @staticmethod
-    def _get_distances(embeddings, referenceEmbedding):
-        """
-        Given a list [emb_i] and a reference rEmb vector,
-        return a list [distance_i] where each distance is
-            distance_i = distance(emb_i, rEmb)
-        At the moment only the dot product is supported
-        (which for unitary vectors is the cosine difference).
-
-        Not particularly optimized.
-        """
-        return list(np.dot(
-            np.array(embeddings, dtype=float),
-            np.array(referenceEmbedding, dtype=float),
-        ))
+    def _get_distances(self, embeddings: List[List[float]], referenceEmbedding: List[float]) -> List[float]:
+        return distanceMetricsMap[self.distance_metric](embeddings, referenceEmbedding)
 
     @staticmethod
     def _getTableName(llm_string):
@@ -282,14 +328,22 @@ class CassandraSemanticCache(BaseCache):
 
     def clear(self, **kwargs: Any) -> None:
         """Clear semantic cache for a given llm_string."""
-        # here we should drop the table and the index, or at least truncate the table.
-        # Note: 'truncate if exists' ...
-        raise NotImplementedError
+        if 'llm_string' not in kwargs:
+            raise ValueError('llm_string parameter must be passed to clear()')
+        else:
+            llm_string = kwargs["llm_string"]        
+            tableName = CassandraSemanticCache._getTableName(llm_string)
+            truncateTableCQL = _truncateSemanticTableCQLTemplate.format(
+                keyspace=self.keyspace,
+                tableName=tableName,
+            )
+            self.session.execute(
+                truncateTableCQL
+            )
 
     def update(self, prompt: str, llm_string: str, return_val: RETURN_VAL_TYPE) -> None:
         """Update cache based on prompt and llm_string."""
         self._ensureTableExists(llm_string)
-        print('CACHING_PROMPT "%s" ==> "%s"' % (prompt, str(return_val)))
         # calculate values to insert
         tableName = CassandraSemanticCache._getTableName(llm_string)
         generations_str = serializeGenerationsToString(return_val)
@@ -333,12 +387,8 @@ class CassandraSemanticCache(BaseCache):
             ]
             # enrich with their metric score
             rows_with_metric = list(zip(
-                CassandraSemanticCache._get_distances(row_embeddings, promptEmbedding),
+                self._get_distances(row_embeddings, promptEmbedding),
                 rows,
-            ))
-            #
-            print('LOOKUP_TOP_SCORES: %s' % (
-                ', '.join('%.5f' % x for x in sorted([s for s, _ in rows_with_metric], reverse=True)[:5])
             ))
             # sort rows by metric score
             sorted_passing_winners = sorted(
@@ -353,7 +403,6 @@ class CassandraSemanticCache(BaseCache):
             if sorted_passing_winners:
                 # we have a winner. Unpack the pair and rehydrate the generations
                 max_score, best_row = sorted_passing_winners[0]
-                print('CACHED_MATCH_FOUND: %.5f' % max_score)
                 return deserializeGenerationsToString(best_row.generations_str)
             else:
                 # no row passes the threshold score
@@ -361,3 +410,35 @@ class CassandraSemanticCache(BaseCache):
         else:
             # no rows returned by the ANN search
             return None
+
+if __name__ == '__main__':
+    import sys
+    # mode = 'ActualEmbeddingTest'
+    mode = 'FakeVectorMetricTest'
+    #
+    if mode == 'ActualEmbeddingTest':
+        from langchain.embeddings import OpenAIEmbeddings
+        #
+        myEmbedding = OpenAIEmbeddings()
+        sent1 = 'How does a feed-forward network differ from a recurrent network?'
+        _sent2 = ' '.join(sys.argv[1:])
+        sent2 = _sent2 + ('?' if(_sent2[-1] != '?') else '')
+        print('SENT1 = "%s"' % sent1)
+        print('SENT2 = "%s"' % sent2)
+        #
+        vec1 = myEmbedding.embed_query(sent1)
+        vec2 = myEmbedding.embed_query(sent2)
+        print('Dot = %.5f' % (
+            CassandraSemanticCache._get_distances([vec1], vec2)[0]
+        ))
+    if mode == 'FakeVectorMetricTest':
+        v1a = [1, 2, 3, 4]
+        v1b = [1, 0, 0, 1]
+        v2 = [-1, 1, 1, -1]
+        v1s = [v1a, v1b]
+        #
+        for k, v in sorted(distanceMetricsMap.items()):
+            print('Metric "%s" => %s' % (
+                k,
+                ', '.join('%.5f' % d for d in v(v1s, v2))
+            ))
