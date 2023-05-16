@@ -3,6 +3,8 @@
 With the goal of providing Cassandra / Astra DB support in the form of
 classes, practices and extensions.
 
+General note: **notebooks** show how to use, **py-files** implement the tools.
+
 ## Phase I - LLM caching
 
 See [this page](phase1_llmcaching.md).

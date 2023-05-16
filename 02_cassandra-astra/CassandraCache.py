@@ -227,12 +227,28 @@ def distance_max(embeddings: List[List[float]], referenceEmbedding: List[float])
         return list(np.linalg.norm(v1s - v2, axis=1, ord=np.inf))
 
 
+# function, sorting (True = higher is closer)
 distanceMetricsMap = {
-    'cos': distance_cosDifference,
-    'dot': distance_dotProduct,
-    'l1': distance_L1,
-    'l2': distance_L2,
-    'max': distance_max,
+    'cos': (
+        distance_cosDifference,
+        True,
+    ),
+    'dot': (
+        distance_dotProduct,
+        False,
+    ),
+    'l1': (
+        distance_L1,
+        False,
+    ),
+    'l2': (
+        distance_L2,
+        False,
+    ),
+    'max': (
+        distance_max,
+        False,
+    ),
 }
 
 
@@ -313,7 +329,8 @@ class CassandraSemanticCache(BaseCache):
             pass
 
     def _get_distances(self, embeddings: List[List[float]], referenceEmbedding: List[float]) -> List[float]:
-        return distanceMetricsMap[self.distance_metric](embeddings, referenceEmbedding)
+        metric_function = distanceMetricsMap[self.distance_metric][0]
+        return metric_function(embeddings, referenceEmbedding)
 
     @staticmethod
     def _getTableName(llm_string):
@@ -398,7 +415,7 @@ class CassandraSemanticCache(BaseCache):
                     if pair[0] >= self.score_threshold
                 ),
                 key=itemgetter(0),
-                reverse=True,
+                reverse=distanceMetricsMap[self.distance_metric][1],
             )
             if sorted_passing_winners:
                 # we have a winner. Unpack the pair and rehydrate the generations
@@ -437,8 +454,8 @@ if __name__ == '__main__':
         v2 = [-1, 1, 1, -1]
         v1s = [v1a, v1b]
         #
-        for k, v in sorted(distanceMetricsMap.items()):
+        for mkey, (mfct, srt) in sorted(distanceMetricsMap.items()):
             print('Metric "%s" => %s' % (
-                k,
-                ', '.join('%.5f' % d for d in v(v1s, v2))
+                mkey,
+                ', '.join('%.5f' % d for d in mfct(v1s, v2))
             ))
