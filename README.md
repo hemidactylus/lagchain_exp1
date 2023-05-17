@@ -5,6 +5,12 @@ classes, practices and extensions.
 
 General note: **notebooks** show how to use, **py-files** implement the tools.
 
+Some of the notebooks below work with either OpenAI's or Google's choice
+of LLM. In the notebook this shows as a cell with a simple binary choice;
+but, whereas for OpenAI you just need to provide a valid `OPENAI_API_KEY`
+in `.env`, for Google (running locally) you have to go through a more
+convoluted setup, described in a [separate document](google_setup.md).
+
 ## Phase I - LLM caching
 
 See [this page](phase1_llmcaching.md).
