@@ -12,3 +12,6 @@ faiss.index
 sqlite.db
 01_other-backends/Chinook.db
 01_other-backends/Chinook_Sqlite.sql
+
+# feast
+feast_store/user_features

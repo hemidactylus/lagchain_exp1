@@ -53,3 +53,19 @@ Some engineering was required, which worked in two steps:
 2. a specialization that just requires declaratively describing which tables contribute with their columns.
 
 The classes need some work, mostly in adding all sorts of validation steps re: overlapping arg names and such.
+
+#### A sub-topic: Feast integration
+
+This expands on the [Feast](https://python.langchain.com/en/latest/modules/prompts/prompt_templates/examples/connecting_to_a_feature_store.html#feast) integration example on LangChain site.
+
+First we set up a minimal Feast ([instructions](feast_store/createFeastStore.md)),
+then we try the vanilla integration, then we see what to do to improve/automate things as done above.
+
+We will use an Astra-backed Feast installation :)
+
+There are instructions to set up a Feast store on Astra (to be reformatted here)
+
+Then, `02_cassandra-astra/feastDIY-Cassandra_01.ipynb` for an example just like in the tutorial.
+
+For Feast, the same simplification was done as for Cassandra, compare the above
+with the `feastPromptTemplate-Cassandra_01` notebook.
