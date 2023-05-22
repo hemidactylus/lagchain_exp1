@@ -1,3 +1,5 @@
+MOVED TO CASSIO WEBSITE
+
 # Create the Feast store
 
 This is the Feast store needed to run exactly the notebooks that use Feast.
