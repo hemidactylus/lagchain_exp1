@@ -4,15 +4,31 @@ for the OpenAI LLM, ready to be used in all LangChain notebooks.
 """
 
 import time
-from google.cloud.aiplatform.private_preview import language_models
+import logging
+import os
+import json
+
+from vertexai.preview import language_models
 from langchain.embeddings.base import Embeddings
+from google.cloud import aiplatform
+from google.oauth2 import service_account
+import google.cloud.logging
+
 from langchain.llms.base import LLM
 # Imports the Cloud Logging client library
 # Imports Python standard library logging
-import google.cloud.logging
-import logging
-import os
 # from langchain import PromptTemplate, LLMChain
+
+GOOGLE_CLOUD_PROJECT = os.environ['GOOGLE_CLOUD_PROJECT']
+GOOGLE_AUTH_JSON_PATH = os.environ['GOOGLE_AUTH_JSON_PATH']
+
+
+json_str = open(GOOGLE_AUTH_JSON_PATH).read()
+json_data = json.loads(json_str)
+json_data['private_key'] = json_data['private_key'].replace('\\n', '\n')
+
+credentials = service_account.Credentials.from_service_account_info(json_data)
+aiplatform.init(project=GOOGLE_CLOUD_PROJECT, credentials=credentials)
 
 #
 # Create a child class of the base Langchain LLM base class for Vertex LLM API
@@ -115,7 +131,7 @@ def googleVertexAILLM():
   #Initialise a new instance of Vertex LLM Object for use
   vertexQnALLMInstance = VertexLLM(
     req_logging=True,
-    model_name='text-bison-001',
+    model_name='text-bison@001',
     max_output_tokens=512,
     temperature=0,
     top_p=0.8,
@@ -124,7 +140,8 @@ def googleVertexAILLM():
   return vertexQnALLMInstance
 
 def googleVertexEmbeddings():
+  embedding_model = language_models.TextEmbeddingModel.from_pretrained("textembedding-gecko@001")
   vertexEmbeddings = VertexEmbeddings(
-    model='no idea what to put here',
+    model=embedding_model,
   )
   return vertexEmbeddings
